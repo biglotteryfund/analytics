@@ -21,6 +21,14 @@ profile = ga.authenticate(
 
 pageviews = profile.core.query.metrics('pageviews').daily(months=-1).rows
 
+top_pages = profile.core.query \
+    .metrics('pageviews', 'unique pageviews', 'time on page', 'bounces', 'entrances', 'exits') \
+    .dimensions('pagePath') \
+    .daily(months=-1) \
+    .sort('pageviews', descending=True)
 
 
-print(pageviews)
+
+json = top_pages.as_dataframe().to_json()
+
+print(json)

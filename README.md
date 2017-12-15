@@ -6,5 +6,5 @@ Once your credentials are stored in your environment, run:
 
     python3 -m venv ve
     source ve/bin/activate
-    pip3 install googleanalytics
+    pip3 install -r requirements.txt
     python ga.py
