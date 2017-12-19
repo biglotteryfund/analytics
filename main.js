@@ -50,22 +50,33 @@ function analyse({queryRows, totalPageViews}) {
         return count < pageviewsRequiredForTarget;
     });
 
-    console.log(`
-    There are ${orderedFinalScores.length} unique URLs accessed in this period.
-    This covers ${totalPageViews} total pageviews.
-    If we want to replace ${targetPercentage}% of these pages with new ones, we need to replace ${urlsToTarget.length} of them
-  `);
-
     let livePaths = liveRoutes.map(_ => _.PathPattern);
     let targetPaths = urlsToTarget.map(_ => _.cleanUrl);
     let urlsToReplace = differenceWith(targetPaths, livePaths, isEqual);
 
-    urlsToTarget.map(row => {
+    console.log(`Here are the pages we have yet to replace, which will get us to ${targetPercentage}%:\n`);
+
+    let replacedTotal = 0;
+    urlsToTarget.filter(row => {
+        let alreadyReplaced = livePaths.indexOf(row.cleanUrl.toLowerCase()) !== -1;
+        if (alreadyReplaced) {
+            replacedTotal += row.pageviews;
+        }
+        return !alreadyReplaced;
+    }).map((row, i) => {
         const urlPath = row.cleanUrl.replace('www.biglotteryfund.org.uk', '');
-        console.log(`${urlPath} (${row.pageviews} pageviews)`)
+        console.log(`\t${i + 1}. ${urlPath} (${row.pageviews} pageviews)`)
     });
 
-    console.log('Of the ' + urlsToTarget.length + ' pages, we have already replaced ' + (urlsToTarget.length - urlsToReplace.length) + ' of them, so we only need to replace ' + urlsToReplace.length + ' more pages');
+    let replacedPercentage = Math.round((replacedTotal / totalPageViews) * 100);
+
+    console.log(`
+    - There are ${orderedFinalScores.length} unique URLs accessed in this period.
+    - This covers ${totalPageViews} total pageviews.
+    - If we want to replace ${targetPercentage}% of these pages with new ones, we need to replace ${urlsToReplace.length} of them.
+    - We have already replaced ${(urlsToTarget.length - urlsToReplace.length)} pages, which gets us to ${replacedPercentage}% already.
+  `);
+
 }
 
 const jwtClient = new google.auth.JWT(
