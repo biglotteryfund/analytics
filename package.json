@@ -1,23 +1,17 @@
 {
-  "name": "blf-analytics",
+  "name": "analytics-extractor",
   "version": "1.0.0",
-  "description": "First create a project as outlined here: https://github.com/debrouwere/google-analytics/wiki/Authentication",
-  "main": "analysis.js",
+  "description": "",
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/biglotteryfund/analytics.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/biglotteryfund/analytics/issues"
-  },
-  "homepage": "https://github.com/biglotteryfund/analytics#readme",
-  "devDependencies": {
+  "dependencies": {
+    "dotenv": "^4.0.0",
+    "googleapis": "^23.0.0",
     "lodash": "^4.17.4"
   }
 }

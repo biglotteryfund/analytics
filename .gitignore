@@ -1,4 +1,6 @@
-.vscode
+.env
 .idea
-ve
+.vscode
 credentials.json
+node_modules
+ve
