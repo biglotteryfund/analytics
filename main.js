@@ -6,6 +6,18 @@ const google = require('googleapis');
 const analytics = google.analytics('v3');
 const VIEW_ID = process.env.VIEW_ID;
 const liveRoutes = require(`${process.env.APP_DIR}/config/cloudfront/live.json`);
+const moment = require('moment');
+
+const argv = require('yargs')
+    .alias('s', 'start')
+    .describe('s', 'Supply a date to start the lookup from (YYYY-MM-DD)')
+    .alias('e', 'end')
+    .describe('e', 'Supply a date to end the lookup from (YYYY-MM-DD)')
+    .help('h')
+    .alias('h', 'help').argv;
+
+let startDate = (argv.s && moment(argv.s, 'YYYY-MM-DD').isValid()) ? argv.s : '30daysAgo';
+let endDate = (argv.e && moment(argv.e, 'YYYY-MM-DD').isValid()) ? argv.e : 'yesterday';
 
 function queryData(query) {
     return new Promise((resolve, reject) => {
@@ -54,6 +66,7 @@ function analyse({queryRows, totalPageViews}) {
     let targetPaths = urlsToTarget.map(_ => _.cleanUrl);
     let urlsToReplace = differenceWith(targetPaths, livePaths, isEqual);
 
+    console.log(`Using stats from: ${startDate} - ${endDate}\n`);
     console.log(`Here are the pages we have yet to replace, which will get us to ${targetPercentage}%:\n`);
 
     let replacedTotal = 0;
@@ -97,10 +110,8 @@ jwtClient.authorize(function (err, tokens) {
         ids: VIEW_ID,
         metrics: 'ga:uniquePageviews',
         dimensions: 'ga:pagePath',
-        // 'start-date': '2017-12-11',
-        // 'end-date': '2017-12-17',
-        'start-date': '30daysAgo',
-        'end-date': 'yesterday',
+        'start-date': startDate,
+        'end-date': endDate,
         sort: '-ga:uniquePageviews',
         filters: 'ga:pagePath!@.pdf',
         'max-results': 10000
