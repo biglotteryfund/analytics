@@ -73,7 +73,7 @@ function analyse({queryRows, totalPageViews}) {
     console.log(`
     - There are ${orderedFinalScores.length} unique URLs accessed in this period.
     - This covers ${totalPageViews} total pageviews.
-    - If we want to replace ${targetPercentage}% of these pages with new ones, we need to replace ${urlsToReplace.length} of them.
+    - If we want to reach ${targetPercentage}% of pageviews, we need to replace ${urlsToReplace.length} pages.
     - We have already replaced ${(urlsToTarget.length - urlsToReplace.length)} pages, which gets us to ${replacedPercentage}% already.
   `);
 
