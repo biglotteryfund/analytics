@@ -50,7 +50,7 @@ function analyse({queryRows, totalPageViews}) {
         return count < pageviewsRequiredForTarget;
     });
 
-    let livePaths = liveRoutes.map(_ => _.PathPattern);
+    let livePaths = liveRoutes.map(_ => _.PathPattern.replace('*', ''));
     let targetPaths = urlsToTarget.map(_ => _.cleanUrl);
     let urlsToReplace = differenceWith(targetPaths, livePaths, isEqual);
 
@@ -64,8 +64,7 @@ function analyse({queryRows, totalPageViews}) {
         }
         return !alreadyReplaced;
     }).map((row, i) => {
-        const urlPath = row.cleanUrl.replace('www.biglotteryfund.org.uk', '');
-        console.log(`\t${i + 1}. ${urlPath} (${row.pageviews} pageviews)`)
+        console.log(`\t${i + 1}. https://www.biglotteryfund.org.uk${row.cleanUrl} (${row.pageviews} pageviews)`)
     });
 
     let replacedPercentage = Math.round((replacedTotal / totalPageViews) * 100);
