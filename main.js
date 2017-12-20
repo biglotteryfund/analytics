@@ -38,6 +38,9 @@ function queryData(query) {
   });
 }
 
+function fullUrl(urlPath) {
+  return `https://www.biglotteryfund.org.uk${encodeURIComponent(urlPath)}`;
+}
 function hasAlreadyReplaced(row) {
   const livePaths = liveRoutes.map(_ => _.PathPattern.replace('*', ''));
   const alreadyReplaced = livePaths.indexOf(row.cleanUrl.toLowerCase()) !== -1;
@@ -124,10 +127,10 @@ function summarise(analysis) {
     }%:
 
     ${analysis.pagesToReplace
-      .map((row, i) => {
-        const fullUrl = `https://www.biglotteryfund.org.uk${row.cleanUrl}`;
-        return `${i + 1}. ${fullUrl} (${row.pageviews} pageviews)`;
-      })
+      .map(
+        (row, i) =>
+          `${i + 1}. ${fullUrl(row.cleanUrl)} (${row.pageviews} pageviews)`
+      )
       .join('\n')}
 
     There are ${analysis.allResults.length} unique URLs accessed in this period.
@@ -141,13 +144,13 @@ function summarise(analysis) {
   `);
 }
 
-function writeCsv(rowsToReplace) {
+function writeCsv(pagesToReplace) {
   const csv = require('fast-csv');
   csv
     .writeToPath(
       'results.csv',
-      rowsToReplace.map(row => {
-        return [row.cleanUrl, row.pageviews];
+      pagesToReplace.map(row => {
+        return [fullUrl(row.cleanUrl), row.pageviews];
       })
     )
     .on('finish', function() {
@@ -193,7 +196,7 @@ jwtClient.authorize(function(err, tokens) {
       summarise(analysis);
 
       if (argv.csv) {
-        writeCsv(rowsToReplace);
+        writeCsv(analysis.pagesToReplace);
       }
     })
     .catch(err => console.log(err));
