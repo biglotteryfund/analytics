@@ -41,8 +41,7 @@ const argv = yargs
   .option('levels', {
     description: 'Levels to collapse URLs down to',
     defaultDescription: 'all, strips query strings only',
-    choices: [2, 3, 4, 5, 6],
-    type: 'number'
+    type: 'number',
   })
   .option('percentage', {
     description: 'Percentage of traffic to target',
@@ -57,6 +56,7 @@ const argv = yargs
   .wrap(Math.min(120, yargs.terminalWidth())).argv;
 
 function log(str) {
+  console.log('');
   console.log(stripIndents`${str}`);
   console.log('');
 }
@@ -83,9 +83,10 @@ const cleaningMethods = {
     }
   },
 
-  sections(originalUrl, levels = 3) {
+  sections(originalUrl, levels) {
     const newUrl = new URL(originalUrl);
-    const cleanedPath = take(newUrl.pathname.split('/'), levels).join('/');
+    // +1 to levels to accout for top-level being the domain.
+    const cleanedPath = take(newUrl.pathname.split('/'), levels + 1).join('/');
     return `${newUrl.origin}${cleanedPath}`;
   }
 };
@@ -222,7 +223,11 @@ jwtClient.authorize(function(err, tokens) {
     return;
   }
 
-  log(`Fetching analytics data for ${argv.start}–${argv.end}…`);
+  log(`Fetching analytics data for ${argv.start}–${argv.end}`);
+
+  if (argv.levels) {
+    log(`Flattening urls down to ${argv.levels}`);
+  }
 
   queryData({
     auth: jwtClient,
