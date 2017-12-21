@@ -226,7 +226,7 @@ jwtClient.authorize(function(err, tokens) {
   log(`Fetching analytics data for ${argv.start}–${argv.end}`);
 
   if (argv.levels) {
-    log(`Flattening urls down to ${argv.levels}`);
+    log(`Flattening URLs down to ${argv.levels} level(s)`);
   }
 
   queryData({
