@@ -1,9 +1,17 @@
-require('dotenv').config();
-
-const { head, orderBy, differenceWith, isEqual, sumBy } = require('lodash');
-const { stripIndents } = require('common-tags');
-const moment = require('moment');
+const dotenv = require('dotenv');
 const google = require('googleapis');
+const moment = require('moment');
+const { stripIndents } = require('common-tags');
+const {
+  differenceWith,
+  head,
+  isEqual,
+  orderBy,
+  partition,
+  sumBy
+} = require('lodash');
+
+dotenv.config();
 
 const VIEW_ID = process.env.VIEW_ID;
 const credentials = require('./credentials.json');
@@ -18,14 +26,16 @@ const argv = require('yargs')
   .alias('s', 'start')
   .describe('end', 'Supply a date to end the lookup from (YYYY-MM-DD)')
   .alias('e', 'end')
+  .describe('percentage', 'target percentage of traffic to react')
   .describe('csv', 'Write results to a CSV')
   .help('h')
   .alias('h', 'help').argv;
 
 const startDate =
-  argv.s && moment(argv.s, 'YYYY-MM-DD').isValid() ? argv.s : '30daysAgo';
+  argv.start && moment(argv.start, 'YYYY-MM-DD').isValid() ? argv.start : '30daysAgo';
 const endDate =
-  argv.e && moment(argv.e, 'YYYY-MM-DD').isValid() ? argv.e : 'yesterday';
+  argv.end && moment(argv.end, 'YYYY-MM-DD').isValid() ? argv.end : 'yesterday';
+const targetPercentage = argv.percentage ? parseInt(argv.percentage, 10) : 80;
 
 function queryData(query) {
   return new Promise((resolve, reject) => {
@@ -39,12 +49,7 @@ function queryData(query) {
 }
 
 function fullUrl(urlPath) {
-  return `https://www.biglotteryfund.org.uk${encodeURIComponent(urlPath)}`;
-}
-function hasAlreadyReplaced(row) {
-  const livePaths = liveRoutes.map(_ => _.PathPattern.replace('*', ''));
-  const alreadyReplaced = livePaths.indexOf(row.cleanUrl.toLowerCase()) !== -1;
-  return alreadyReplaced;
+  return `https://www.biglotteryfund.org.uk${encodeURI(urlPath)}`;
 }
 
 function processQueryRows(queryRows) {
@@ -92,15 +97,14 @@ function analyse({ queryRows, targetPercentage, totalPageViews }) {
     totalPageViews: totalPageViews
   });
 
-  const pagesToReplace = resultsUpToTarget.filter(
-    row => !hasAlreadyReplaced(row)
-  );
-
-  const replacedPages = resultsUpToTarget.length - pagesToReplace.length;
-
-  const replacedTotalPageviews = sumBy(resultsUpToTarget, row => {
-    return hasAlreadyReplaced(row) ? row.pageviews : 0;
+  const [replacedPages, pagesToReplace] = partition(resultsUpToTarget, row => {
+    const livePaths = liveRoutes.map(route =>
+      route.PathPattern.replace('*', '')
+    );
+    return livePaths.indexOf(row.cleanUrl.toLowerCase()) !== -1;
   });
+
+  const replacedTotalPageviews = sumBy(replacedPages, 'pageviews');
 
   const replacedPercentage = Math.round(
     replacedTotalPageviews / totalPageViews * 100
@@ -139,7 +143,7 @@ function summarise(analysis) {
       analysis.targetPercentage
     }% of pageviews, we need to replace ${analysis.pagesToReplace.length} pages.
     We have already replaced ${
-      analysis.replacedPages
+      analysis.replacedPages.length
     } pages, which gets us to ${analysis.replacedPercentage}% already.
   `);
 }
@@ -186,7 +190,7 @@ jwtClient.authorize(function(err, tokens) {
     .then(data => {
       const analysis = analyse({
         queryRows: data.rows,
-        targetPercentage: 80,
+        targetPercentage: targetPercentage,
         totalPageViews: parseInt(
           data.totalsForAllResults['ga:uniquePageviews'],
           10
