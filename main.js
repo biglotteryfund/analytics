@@ -1,14 +1,18 @@
 const dotenv = require('dotenv');
-const google = require('googleapis');
+const yargs = require('yargs');
 const moment = require('moment');
+const google = require('googleapis');
 const { stripIndents } = require('common-tags');
+const { URL } = require('url');
 const {
   differenceWith,
   head,
+  includes,
   isEqual,
   orderBy,
   partition,
-  sumBy
+  sumBy,
+  take
 } = require('lodash');
 
 dotenv.config();
@@ -21,21 +25,41 @@ const liveRoutes = require(`${
 
 const analytics = google.analytics('v3');
 
-const argv = require('yargs')
-  .describe('start', 'Supply a date to start the lookup from (YYYY-MM-DD)')
-  .alias('s', 'start')
-  .describe('end', 'Supply a date to end the lookup from (YYYY-MM-DD)')
-  .alias('e', 'end')
-  .describe('percentage', 'target percentage of traffic to react')
-  .describe('csv', 'Write results to a CSV')
+const argv = yargs
+  .option('start', {
+    alias: 's',
+    description: 'Supply a date to start the lookup from (YYYY-MM-DD)',
+    default: '30daysAgo',
+    coerce: arg => (moment(arg, 'YYYY-MM-DD').isValid() ? arg : '30daysAgo')
+  })
+  .option('end', {
+    alias: 'e',
+    description: 'Supply a date to end the lookup from (YYYY-MM-DD)',
+    default: 'yesterday',
+    coerce: arg => (moment(arg, 'YYYY-MM-DD').isValid() ? arg : 'yesterday')
+  })
+  .option('levels', {
+    description: 'Levels to collapse URLs down to',
+    defaultDescription: 'all, strips query strings only',
+    choices: [2, 3, 4, 5, 6],
+    type: 'number'
+  })
+  .option('percentage', {
+    description: 'Percentage of traffic to target',
+    default: 80,
+    type: 'number'
+  })
+  .option('csv', {
+    description: 'Write results to a CSV'
+  })
   .help('h')
-  .alias('h', 'help').argv;
+  .alias('h', 'help')
+  .wrap(Math.min(120, yargs.terminalWidth())).argv;
 
-const startDate =
-  argv.start && moment(argv.start, 'YYYY-MM-DD').isValid() ? argv.start : '30daysAgo';
-const endDate =
-  argv.end && moment(argv.end, 'YYYY-MM-DD').isValid() ? argv.end : 'yesterday';
-const targetPercentage = argv.percentage ? parseInt(argv.percentage, 10) : 80;
+function log(str) {
+  console.log(stripIndents`${str}`);
+  console.log('');
+}
 
 function queryData(query) {
   return new Promise((resolve, reject) => {
@@ -48,25 +72,47 @@ function queryData(query) {
   });
 }
 
-function fullUrl(urlPath) {
-  return `https://www.biglotteryfund.org.uk${encodeURI(urlPath)}`;
+const cleaningMethods = {
+  query(originalUrl) {
+    const newUrl = new URL(originalUrl);
+    if (includes(newUrl.pathname, '/~/link.aspx')) {
+      return newUrl.href;
+    } else {
+      const cleanedPath = head(newUrl.pathname.split('?'));
+      return `${newUrl.origin}${cleanedPath}`;
+    }
+  },
+
+  sections(originalUrl, levels = 3) {
+    const newUrl = new URL(originalUrl);
+    const cleanedPath = take(newUrl.pathname.split('/'), levels).join('/');
+    return `${newUrl.origin}${cleanedPath}`;
+  }
+};
+
+function cleanUrl(originalUrl) {
+  if (argv.levels) {
+    return cleaningMethods.sections(originalUrl, argv.levels);
+  } else {
+    return cleaningMethods.query(originalUrl);
+  }
 }
 
 function processQueryRows(queryRows) {
-  const cleanedRows = queryRows.map(row => {
-    const [fullUrl, pageviews] = row;
+  const mapResults = row => {
+    const [urlPath, pageviews] = row;
+    const originalUrl = `https://www.biglotteryfund.org.uk${encodeURI(
+      urlPath
+    )}`;
 
     return {
-      fullUrl: fullUrl,
-      cleanUrl:
-        fullUrl.indexOf('/~/link.aspx') !== -1
-          ? fullUrl
-          : head(fullUrl.split('?')),
+      originalUrl: originalUrl,
+      cleanUrl: cleanUrl(originalUrl),
       pageviews: parseInt(pageviews, 10)
     };
-  });
+  };
 
-  const combinedRows = cleanedRows.reduce((collection, currentRow) => {
+  const combinePageviewsReducer = (collection, currentRow) => {
     const match = collection.find(row => row.cleanUrl === currentRow.cleanUrl);
     if (match) {
       match.pageviews = match.pageviews + currentRow.pageviews;
@@ -74,9 +120,13 @@ function processQueryRows(queryRows) {
       collection.push(currentRow);
     }
     return collection;
-  }, []);
+  };
 
-  return orderBy(combinedRows, ['pageviews'], ['desc']);
+  return orderBy(
+    queryRows.map(mapResults).reduce(combinePageviewsReducer, []),
+    ['pageviews'],
+    ['desc']
+  );
 }
 
 function limitUpToPercentage({ results, targetPercentage, totalPageViews }) {
@@ -101,7 +151,7 @@ function analyse({ queryRows, targetPercentage, totalPageViews }) {
     const livePaths = liveRoutes.map(route =>
       route.PathPattern.replace('*', '')
     );
-    return livePaths.indexOf(row.cleanUrl.toLowerCase()) !== -1;
+    return includes(livePaths, new URL(row.cleanUrl).pathname);
   });
 
   const replacedTotalPageviews = sumBy(replacedPages, 'pageviews');
@@ -122,19 +172,13 @@ function analyse({ queryRows, targetPercentage, totalPageViews }) {
 }
 
 function summarise(analysis) {
-  console.log('');
-  console.log(stripIndents`
-    Using stats from: ${startDate} - ${endDate}
-
+  log(`
     Here are the pages we have yet to replace, which will get us to ${
       analysis.targetPercentage
     }%:
 
     ${analysis.pagesToReplace
-      .map(
-        (row, i) =>
-          `${i + 1}. ${fullUrl(row.cleanUrl)} (${row.pageviews} pageviews)`
-      )
+      .map((row, i) => `${i + 1}. ${row.cleanUrl} (${row.pageviews} pageviews)`)
       .join('\n')}
 
     There are ${analysis.allResults.length} unique URLs accessed in this period.
@@ -154,7 +198,7 @@ function writeCsv(pagesToReplace) {
     .writeToPath(
       'results.csv',
       pagesToReplace.map(row => {
-        return [fullUrl(row.cleanUrl), row.pageviews];
+        return [row.cleanUrl, row.pageviews];
       })
     )
     .on('finish', function() {
@@ -170,19 +214,23 @@ const jwtClient = new google.auth.JWT(
   null
 );
 
+log('Authorising');
+
 jwtClient.authorize(function(err, tokens) {
   if (err) {
     console.log(err);
     return;
   }
 
+  log(`Fetching analytics data for ${argv.start}–${argv.end}…`);
+
   queryData({
     auth: jwtClient,
     ids: VIEW_ID,
     metrics: 'ga:uniquePageviews',
     dimensions: 'ga:pagePath',
-    'start-date': startDate,
-    'end-date': endDate,
+    'start-date': argv.start,
+    'end-date': argv.end,
     sort: '-ga:uniquePageviews',
     filters: 'ga:pagePath!@.pdf',
     'max-results': 10000
@@ -190,7 +238,7 @@ jwtClient.authorize(function(err, tokens) {
     .then(data => {
       const analysis = analyse({
         queryRows: data.rows,
-        targetPercentage: targetPercentage,
+        targetPercentage: argv.percentage,
         totalPageViews: parseInt(
           data.totalsForAllResults['ga:uniquePageviews'],
           10
