@@ -1,15 +1,17 @@
 {
-  "name": "analytics-extractor",
+  "name": "analytics",
   "version": "1.0.0",
   "description": "",
   "author": "",
   "license": "UNLICENSED",
   "private": true,
-  "main": "main.js",
+  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "prettier --single-quote --write index.js"
   },
   "dependencies": {
+    "common-tags": "^1.5.1",
     "dotenv": "^4.0.0",
     "fast-csv": "^2.4.1",
     "googleapis": "^23.0.0",
@@ -18,6 +20,6 @@
     "yargs": "^10.0.3"
   },
   "devDependencies": {
-    "common-tags": "^1.5.1"
+    "prettier": "^1.9.2"
   }
 }
