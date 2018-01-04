@@ -65,7 +65,7 @@ const globalArgv = yargs
       }
 
       queryData({
-        filters: `ga:pagePath=~${argv.path};ga:pageviews>${argv.minPageviews ||
+        filters: `ga:pagePath=~${argv.path};ga:uniquePageviews>${argv.minPageviews ||
           0}`
       })
         .then(data => {
