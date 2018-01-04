@@ -55,6 +55,10 @@ const globalArgv = yargs
         .option('min-pageviews', {
           description: 'Filter out results below a minimum number of pageviews',
           type: 'number'
+        })
+        .option('flatten-query', {
+          description: 'Flatten query strings?',
+          boolean: true
         });
     },
     argv => {
@@ -65,13 +69,16 @@ const globalArgv = yargs
       }
 
       queryData({
-        filters: `ga:pagePath=~${argv.path};ga:uniquePageviews>${argv.minPageviews ||
-          0}`
+        filters: `ga:pagePath=~${
+          argv.path
+        };ga:uniquePageviews>${argv.minPageviews || 0}`
       })
         .then(data => {
           const allResults = processQueryRows(
             data.rows,
-            flow(cleaningMethods.defaults(), cleaningMethods.removeRegion())
+            flow(cleaningMethods.defaults({
+              flattenQuery: argv.flattenQuery
+            }), cleaningMethods.removeRegion())
           );
 
           loga([
@@ -122,12 +129,12 @@ const globalArgv = yargs
       }
 
       function analyse({ queryRows, targetPercentage, totalPageViews }) {
-        const cleaningFn = argv.levels
-          ? flow(
-              cleaningMethods.defaults(),
-              cleaningMethods.flattenLevels(argv.levels)
-            )
-          : cleaningMethods.defaults();
+        const cleaningFn = flow(
+          cleaningMethods.defaults({
+            flattenQuery: true
+          }),
+          argv.levels ? cleaningMethods.flattenLevels(argv.levels) : x => x
+        );
 
         const allResults = processQueryRows(queryRows, cleaningFn);
 
@@ -283,12 +290,16 @@ const cleaningMethods = {
   }
 };
 
-cleaningMethods.defaults = () => {
+cleaningMethods.defaults = ({ flattenQuery }) => {
   return urlPath => {
-    return flow(
-      cleaningMethods.queryStrings(),
-      cleaningMethods.trailingSlash()
-    )(urlPath);
+    if (flattenQuery) {
+      return flow(
+        cleaningMethods.queryStrings(),
+        cleaningMethods.trailingSlash()
+      )(urlPath);
+    } else {
+      return flow(cleaningMethods.trailingSlash())(urlPath);
+    }
   };
 };
 
