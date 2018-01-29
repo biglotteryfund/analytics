@@ -20,6 +20,13 @@ const {
 
 dotenv.config();
 
+// Paths that we've already replaced (but via wildcards) go here
+const pathExceptions = [
+    '/home/funding/funding%20finder',
+    '/funding/programmes/reaching-communities-england',
+    '/funding/programmes/awards-for-all-northern-ireland'
+];
+
 const VIEW_ID = process.env.VIEW_ID;
 const credentials = require('./credentials.json');
 const liveRoutes = require(`${
@@ -142,7 +149,7 @@ const globalArgv = yargs
           row => {
             const livePaths = liveRoutes.map(route =>
               route.PathPattern.replace('*', '')
-            );
+            ).concat(pathExceptions);
             return includes(livePaths, new URL(row.cleanUrl).pathname);
           }
         );
