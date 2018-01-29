@@ -7,8 +7,9 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "format": "prettier --single-quote --write index.js"
+    "format": "prettier --single-quote --write *.js",
+    "lint": "eslint .",
+    "test": "npm run lint"
   },
   "dependencies": {
     "common-tags": "^1.5.1",
@@ -20,6 +21,7 @@
     "yargs": "^10.0.3"
   },
   "devDependencies": {
+    "eslint": "^4.15.0",
     "prettier": "^1.9.2"
   }
 }

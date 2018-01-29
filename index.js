@@ -7,11 +7,9 @@ const google = require('googleapis');
 const { stripIndents } = require('common-tags');
 const { URL } = require('url');
 const {
-  differenceWith,
   flow,
   head,
   includes,
-  isEqual,
   orderBy,
   partition,
   sumBy,
@@ -33,6 +31,10 @@ const liveRoutes = require(`${
   process.env.APP_DIR
 }/config/cloudfront/live.json`);
 
+const livePaths = liveRoutes
+  .map(route => route.PathPattern.replace('*', ''))
+  .concat(pathExceptions);
+
 const globalArgv = yargs
   .option('start', {
     alias: 's',
@@ -52,8 +54,8 @@ const globalArgv = yargs
   .command(
     'query',
     'Query tools',
-    yargs => {
-      return yargs
+    commandArgs => {
+      return commandArgs
         .option('path', {
           alias: 'p',
           description: 'Limit query to a given path',
@@ -62,6 +64,10 @@ const globalArgv = yargs
         .option('min-pageviews', {
           description: 'Filter out results below a minimum number of pageviews',
           type: 'number'
+        })
+        .option('flatten-query', {
+          description: 'Flatten query strings?',
+          boolean: true
         });
     },
     argv => {
@@ -72,18 +78,29 @@ const globalArgv = yargs
       }
 
       queryData({
-        filters: `ga:pagePath=~${argv.path};ga:pageviews>${argv.minPageviews ||
-          0}`
+        filters: `ga:pagePath=~${
+          argv.path
+        };ga:uniquePageviews>${argv.minPageviews || 0}`
       })
         .then(data => {
           const allResults = processQueryRows(
             data.rows,
-            flow(cleaningMethods.defaults(), cleaningMethods.removeRegion())
+            flow(
+              cleaningMethods.defaults({
+                flattenQuery: argv.flattenQuery
+              }),
+              cleaningMethods.removeRegion()
+            )
+          );
+
+          const totalPageViews = parseInt(
+            data.totalsForAllResults['ga:uniquePageviews'],
+            10
           );
 
           loga([
             `Pages for path ${argv.path}`,
-            listPages(allResults),
+            listPages(allResults, totalPageViews),
             `${allResults.length} total pages`
           ]);
 
@@ -97,8 +114,8 @@ const globalArgv = yargs
   .command(
     'migration',
     'Migration summary',
-    yargs => {
-      return yargs
+    commandArgs => {
+      return commandArgs
         .option('levels', {
           description: 'Levels to collapse URLs down to',
           defaultDescription: 'all, strips query strings only',
@@ -129,12 +146,12 @@ const globalArgv = yargs
       }
 
       function analyse({ queryRows, targetPercentage, totalPageViews }) {
-        const cleaningFn = argv.levels
-          ? flow(
-              cleaningMethods.defaults(),
-              cleaningMethods.flattenLevels(argv.levels)
-            )
-          : cleaningMethods.defaults();
+        const cleaningFn = flow(
+          cleaningMethods.defaults({
+            flattenQuery: true
+          }),
+          argv.levels ? cleaningMethods.flattenLevels(argv.levels) : x => x
+        );
 
         const allResults = processQueryRows(queryRows, cleaningFn);
 
@@ -147,9 +164,6 @@ const globalArgv = yargs
         const [replacedPages, pagesToReplace] = partition(
           resultsUpToTarget,
           row => {
-            const livePaths = liveRoutes.map(route =>
-              route.PathPattern.replace('*', '')
-            ).concat(pathExceptions);
             return includes(livePaths, new URL(row.cleanUrl).pathname);
           }
         );
@@ -177,7 +191,7 @@ const globalArgv = yargs
             analysis.targetPercentage
           }%:
 
-          ${listPages(analysis.pagesToReplace)}
+          ${listPages(analysis.pagesToReplace, analysis.totalPageViews)}
 
           There are ${
             analysis.allResults.length
@@ -237,15 +251,14 @@ function loga(strs) {
   return strs.map(log);
 }
 
-function listPages(pages) {
+function listPages(pages, totalPageViews) {
   const digits = pages.length.toString().length;
   return pages
-    .map(
-      (row, i) =>
-        `${(i + 1).toString().padStart(digits, '0')}. ${row.cleanUrl} (${
-          row.pageviews
-        } pageviews)`
-    )
+    .map((row, i) => {
+      const num = (i + 1).toString().padStart(digits, '0');
+      const percentage = (row.pageviews / totalPageViews * 100).toFixed(2);
+      return `${num}. ${row.cleanUrl} (${row.pageviews} pageviews / ${percentage}%)`;
+    })
     .join('\n');
 }
 
@@ -290,12 +303,16 @@ const cleaningMethods = {
   }
 };
 
-cleaningMethods.defaults = () => {
+cleaningMethods.defaults = ({ flattenQuery }) => {
   return urlPath => {
-    return flow(
-      cleaningMethods.queryStrings(),
-      cleaningMethods.trailingSlash()
-    )(urlPath);
+    if (flattenQuery) {
+      return flow(
+        cleaningMethods.queryStrings(),
+        cleaningMethods.trailingSlash()
+      )(urlPath);
+    } else {
+      return flow(cleaningMethods.trailingSlash())(urlPath);
+    }
   };
 };
 
