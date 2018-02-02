@@ -20,9 +20,8 @@ dotenv.config();
 
 // Paths that we've already replaced (but via wildcards) go here
 const pathExceptions = [
-    '/home/funding/funding%20finder',
-    '/funding/programmes/reaching-communities-england',
-    '/funding/programmes/awards-for-all-northern-ireland'
+  '/home/funding/funding%20finder',
+  '/funding/programmes'
 ];
 
 const VIEW_ID = process.env.VIEW_ID;
@@ -164,7 +163,13 @@ const globalArgv = yargs
         const [replacedPages, pagesToReplace] = partition(
           resultsUpToTarget,
           row => {
-            return includes(livePaths, new URL(row.cleanUrl).pathname);
+            const urlPath = new URL(row.cleanUrl).pathname;
+            return (
+              includes(livePaths, urlPath) ||
+              pathExceptions.some(pathException =>
+                urlPath.startsWith(pathException)
+              )
+            );
           }
         );
 
@@ -257,7 +262,9 @@ function listPages(pages, totalPageViews) {
     .map((row, i) => {
       const num = (i + 1).toString().padStart(digits, '0');
       const percentage = (row.pageviews / totalPageViews * 100).toFixed(2);
-      return `${num}. ${row.cleanUrl} (${row.pageviews} pageviews / ${percentage}%)`;
+      return `${num}. ${row.cleanUrl} (${
+        row.pageviews
+      } pageviews / ${percentage}%)`;
     })
     .join('\n');
 }
