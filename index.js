@@ -31,8 +31,7 @@ const liveRoutes = require(`${
 }/config/cloudfront/live.json`);
 
 const livePaths = liveRoutes
-  .map(route => route.PathPattern.replace('*', ''))
-  .concat(pathExceptions);
+  .map(route => route.PathPattern.replace('*', ''));
 
 const globalArgv = yargs
   .option('start', {
