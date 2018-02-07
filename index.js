@@ -20,9 +20,12 @@ dotenv.config();
 
 // Paths that we've already replaced (but via wildcards) go here
 const pathExceptions = [
+  '/~/link.aspx',
   '/home/funding/funding%20finder',
   '/funding/programmes',
-  '/funding/funding-guidance/applying-for-funding'
+  '/funding/funding-guidance/applying-for-funding',
+  // Messy BBO urls
+  '/global-content/programmes/england/~/link.aspx?_id=50fab7d4b5a248f8a8c8f5d4d33f9e0f&_z=z'
 ];
 
 const VIEW_ID = process.env.VIEW_ID;
