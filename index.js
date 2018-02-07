@@ -21,7 +21,8 @@ dotenv.config();
 // Paths that we've already replaced (but via wildcards) go here
 const pathExceptions = [
   '/home/funding/funding%20finder',
-  '/funding/programmes'
+  '/funding/programmes',
+  '/funding/funding-guidance/applying-for-funding'
 ];
 
 const VIEW_ID = process.env.VIEW_ID;
