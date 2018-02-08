@@ -20,7 +20,6 @@ dotenv.config();
 
 // Paths that we've already replaced (but via wildcards) go here
 const pathExceptions = [
-  '/~/link.aspx',
   '/home/funding/funding%20finder',
   '/funding/programmes',
   '/funding/funding-guidance/applying-for-funding',
