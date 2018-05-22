@@ -61,8 +61,18 @@ csv({
             };
         });
         list = _.sortBy(_.uniqBy(list, 'url'), '-pageviews');
-        console.log(JSON.stringify(convertToHierarchy(list), null, 4));
+        let hierarchy = convertToHierarchy(list);
+
+        // remove some errors / non-page items
+        let suspectPaths = ['https:', 'sitecore', '-', 'error', 'sitemap'];
+        hierarchy.children = hierarchy.children.filter(c => {
+            let isSuspectPath = suspectPaths.indexOf(c.name) !== -1;
+            let isLowTraffic = c.pageviews < 100;
+            return !isSuspectPath && !isLowTraffic;
+        });
+        // strip out very low-traffic top-level sections/pages
+        console.log(JSON.stringify(hierarchy, null, 4));
     })
     .on('done', error => {
-        console.log('end', error)
+        // console.log('end', error)
     });
