@@ -21,6 +21,7 @@
     "yargs": "^10.0.3"
   },
   "devDependencies": {
+    "csvtojson": "^1.1.12",
     "eslint": "^4.15.0",
     "prettier": "^1.9.2"
   }
